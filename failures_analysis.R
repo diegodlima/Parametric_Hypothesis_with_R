@@ -1,4 +1,4 @@
-setwd('C:/FCD/BigDataRAzure/Projetos/Failures/')
+setwd('C:/FCD/BigDataRAzure/Projetos/Parametric_Hypothesis_with_R')
 getwd()
 
 # Loading the packages
@@ -43,7 +43,7 @@ failures$ID <- gsub('\\D$', '', failures$ID)
 # Considering that the current situation regards to the failures of a production, it's important to consider
 # relational metrics intead of absolute: Perfomance instead of Production or Failures.
 # The performance metric that will be chosen is an adaptation of MTBF (Mean Tima Between Failures) concept.
-# For this project the performance will be measure by: Produced Lenght Between Failures.
+# For this project the performance will be measure by: Produced Length Between Failures.
 # To be able to calculate this performance, it's important to discard failures registers that don't have
 # production registers.
 # Removing registers from the failures set which don't have production registers.
@@ -60,7 +60,7 @@ View(production_failures)
 
 # Calculating the performance
 production_failures <- production_failures %>%
-  mutate(PERFORMANCE = if_else(TOTAL == 0, LENGHT, LENGHT / TOTAL))
+  mutate(PERFORMANCE = if_else(TOTAL == 0, LENGTH, LENGTH / TOTAL))
 View(production_failures)
 
 # Checking the occurrences of each failure before the changes
@@ -75,9 +75,9 @@ num_failures_before <- num_failures_before %>% mutate(
   CUM_FAILURES = cumsum(FREQUENCY),
   CUM_PERC = round((CUM_FAILURES / sum(FREQUENCY) * 100), 2)
 )
-
+View(num_failures_before)
 # Plotting the occurrences
-ggplot(num_failures_before, aes(x = reorder(FAILURES, -FREQUENCY))) +
+ggplot(num_failures_before, aes(x = reorder(FAILURES, CUM_FAILURES))) +
   geom_col(aes(y = FREQUENCY), fill = 'lightblue', color = 'darkblue', alpha = 0.7, group = 1) +
   ggtitle('FREQUENCY OF FAILURES BEFORE THE CHANGES') +
   geom_line(aes(y = CUM_PERC*264/100), group = 2, color = 'darkred') +
@@ -237,7 +237,7 @@ best_machines <- as.vector(unlist(machine_performance %>% filter(DIF_PERFORMANCE
 demand_by_machine_worse_products <- dcast(distinct(production_failures %>%
            filter(PRODUCT %in% worse_products) %>%
            group_by(PRODUCT, MACHINE, VERSION) %>%
-           mutate(PRODUCTION = sum(LENGHT)) %>%
+           mutate(PRODUCTION = sum(LENGTH)) %>%
            select(PRODUCT, MACHINE, VERSION, PRODUCTION),
          MACHINE, VERSION, .keep_all = T),
       MACHINE + PRODUCT ~ VERSION)
@@ -253,7 +253,7 @@ demand_by_machine_worse_products %>% mutate(DIF_DEMAND = if_else(BEFORE > AFTER,
 demand_by_machine_best_products <- dcast(distinct(production_failures %>%
                                                     filter(PRODUCT %in% best_products) %>%
                                                     group_by(PRODUCT, MACHINE, VERSION) %>%
-                                                    mutate(PRODUCTION = sum(LENGHT)) %>%
+                                                    mutate(PRODUCTION = sum(LENGTH)) %>%
                                                     select(PRODUCT, MACHINE, VERSION, PRODUCTION),
                                                   MACHINE, VERSION, .keep_all = T),
                                          MACHINE + PRODUCT ~ VERSION)
@@ -266,7 +266,7 @@ table(demand_by_machine_best_products$DIF_DEMAND)
 demand_by_machine_best_products <- dcast(distinct(production_failures %>%
                                                     filter(PRODUCT %in% best_products) %>%
                                                     group_by(PRODUCT, MACHINE, ID, VERSION) %>%
-                                                    mutate(PRODUCTION = mean(LENGHT)) %>%
+                                                    mutate(PRODUCTION = mean(LENGTH)) %>%
                                                     select(PRODUCT, MACHINE, ID, VERSION, PRODUCTION),
                                                   MACHINE, VERSION, .keep_all = T),
                                          MACHINE + ID + PRODUCT ~ VERSION)
@@ -274,13 +274,27 @@ demand_by_machine_best_products
 # Calculating the difference between length mean before and after changes.
 mean(demand_by_machine_best_products$AFTER, na.rm = T)-mean(demand_by_machine_best_products$BEFORE, na.rm = T)
 
-# Even it's shown that the products have incresead the lenght by unit, 62 meters aren't enough to affirm that
-# the lenght has impact to the number of failures.
+# Even it's shown that the products have incresead the length by unit, 62 meters aren't enough to affirm that
+# the length has impact to the number of failures.
+# To finally check if there are a correlation between the length of products and number of failures, it will be
+# calculated the correlation coefficient.
+ggplot(production_failures) +
+  geom_point(aes(x = LENGTH, y = TOTAL), fill = 'lightblue', color = 'darkblue', alpha = 0.7) +
+  ggtitle('CORRELATION BETWEEN LENGTH OF PRODUCT AND FAILURES OCCURRENCES') +
+  labs(subtitle = paste('Correlation coefficient',
+                        round(cor(production_failures$LENGTH,
+                            production_failures$TOTAL,
+                            method = c('pearson', 'kendall', 'spearman')),2))) +
+  theme(plot.title = element_text(vjust = 0.5, hjust = 0.5, face='bold'),
+        plot.subtitle = element_text(vjust = 0.5, hjust = 0.5))
+
+# With a correlation coefficient close to 0, it's proved that there aren't a a strong correlation between
+# the length of the product with the number of failures.
 # So, at this point, the first suggestion that the machines have not to do with the performance decreasement
 # of the product TYPE A is being considered true, and the second one isn't comproved.
 
 # ANALYSIS OF FREQUENCE OF FAILURES BY SECTIONS OF THE PRODUCT.
-# Since the product can be measured by lenght, by analysing the number of failures per secction can bring up
+# Since the product can be measured by length, by analysing the number of failures per secction can bring up
 # some insights that could help to understand if the failures occur more at the begin of the proccess, at the
 # middle of the proccess or at the end of the proccess.
 

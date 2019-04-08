@@ -59,7 +59,7 @@ failures$ID <- gsub('\\D$', '', failures$ID)
 ## PERFOMANCE ANALYSES
 Considering that the current situation regards to the failures of a production, it's important to consider relational metrics intead of absolute: Perfomance instead of Production or Failures.<br />
 The performance metric that will be chosen is an adaptation of MTBF (Mean Tima Between Failures) concept.<br />
-For this project the performance will be measure by: Produced Lenght Between Failures.<br />
+For this project the performance will be measure by: Produced Length Between Failures.<br />
 To be able to calculate this performance, it's important to discard failures registers that don't have production registers.<br />
 
 ## Removing registers from the failures set which don't have production registers.
@@ -91,7 +91,7 @@ kable(head(production_failures, 10)) %>%
 ## Calculating the performance
 ```{r}
 production_failures <- production_failures %>%
-  mutate(PERFORMANCE = if_else(TOTAL == 0, LENGHT, LENGHT / TOTAL))
+  mutate(PERFORMANCE = if_else(TOTAL == 0, LENGTH, LENGTH / TOTAL))
 kable(head(production_failures, 10)) %>%
   kable_styling(bootstrap_options = c('striped', 'hover', 'condensed'),
                 font_size = 9)
@@ -112,7 +112,7 @@ num_failures_before <- num_failures_before %>% mutate(
 )
 
 # Plotting the occurrences
-ggplot(num_failures_before, aes(x = reorder(FAILURES, -FREQUENCY))) +
+ggplot(num_failures_before, aes(x = reorder(FAILURES, CUM_FAILURES))) +
   geom_col(aes(y = FREQUENCY), fill = 'lightblue', color = 'darkblue', alpha = 0.7, group = 1) +
   ggtitle('FREQUENCY OF FAILURES BEFORE THE CHANGES') +
   geom_line(aes(y = CUM_PERC*264/100), group = 2, color = 'darkred') +
@@ -151,11 +151,11 @@ ggplot(num_failures_after, aes(x = reorder(FAILURES, -FREQUENCY))) +
 
 **After the changes there are again 6 failures which represent about 80% of the total.**<br />
 **But only the failure 16 from the list of before changes is repeated.**<br />
-** It shows that probably the changes have contributed to the improvements of that failures.**<br /><br />
+**It shows that probably the changes have contributed to the improvements of that failures.**<br /><br />
 
 **Even though only the mean of performance can't be enough to make decisions, it's a simple way to check the evolution between before and after modifications.**
 
-## Mean of Performance before and after changes
+##Mean of Performance before and after changes
 ```{r}
 ggplot(distinct(production_failures %>%
            group_by(VERSION) %>%
@@ -237,16 +237,16 @@ ggplot(product_performance %>% filter(DIF_PERFORMANCE != 0)) +
 
 **Between the products with production before and after changes, only TYPE A got worse.**
 <br />
-List of products which has gotten worse
+**List of products which has gotten worse**
 ```{r}
 worse_products <- as.vector(unlist(product_performance %>% filter(DIF_PERFORMANCE < 0) %>% select(PRODUCT)))
 ```
-# List of products which has improved
+**List of products which has improved**
 ```{r}
 best_products <- as.vector(unlist(product_performance %>% filter(DIF_PERFORMANCE > 0) %>% select(PRODUCT)))
 ```
 
-MEAN OF PERFORMANCE BEFORE AND AFTER CHANGES BY MACHINE
+##MEAN OF PERFORMANCE BEFORE AND AFTER CHANGES BY MACHINE
 ```{r, results="hide", warning=F}
 machine_performance <- dcast(distinct(production_failures %>%
                                         group_by(MACHINE, VERSION) %>%
@@ -285,11 +285,11 @@ ggplot(machine_performance %>% filter(DIF_PERFORMANCE != 0)) +
 **Between the machines with production before and after changes, three of them got worse: BA_13, BA_14, CA_06 and DT_12.**<br />
 **But for the whole department, the most machines improved.**<br />
 
-List of machines which has gotten worse
+**List of machines which has gotten worse**
 ```{r}
 worse_machines <- as.vector(unlist(machine_performance %>% filter(DIF_PERFORMANCE < 0) %>% select(MACHINE)))
 ```
-# List of machines which has improved
+**List of machines which has improved**
 ```{r}
 best_machines <- as.vector(unlist(machine_performance %>% filter(DIF_PERFORMANCE > 0) %>% select(MACHINE)))
 ```
@@ -298,7 +298,7 @@ best_machines <- as.vector(unlist(machine_performance %>% filter(DIF_PERFORMANCE
 demand_by_machine_worse_products <- dcast(distinct(production_failures %>%
            filter(PRODUCT %in% worse_products) %>%
            group_by(PRODUCT, MACHINE, VERSION) %>%
-           mutate(PRODUCTION = sum(LENGHT)) %>%
+           mutate(PRODUCTION = sum(LENGTH)) %>%
            select(PRODUCT, MACHINE, VERSION, PRODUCTION),
          MACHINE, VERSION, .keep_all = T),
       MACHINE + PRODUCT ~ VERSION)
@@ -315,16 +315,16 @@ To test this second one, it's important to check if the demand by machine of the
 demand_by_machine_best_products <- dcast(distinct(production_failures %>%
                                                     filter(PRODUCT %in% best_products) %>%
                                                     group_by(PRODUCT, MACHINE, VERSION) %>%
-                                                    mutate(PRODUCTION = sum(LENGHT)) %>%
+                                                    mutate(PRODUCTION = sum(LENGTH)) %>%
                                                     select(PRODUCT, MACHINE, VERSION, PRODUCTION),
                                                   MACHINE, VERSION, .keep_all = T),
                                          MACHINE + PRODUCT ~ VERSION)
 demand_by_machine_best_products[is.na(demand_by_machine_best_products)] <- 0
 demand_by_machine_best_products <- demand_by_machine_best_products %>%
   mutate(DIF_DEMAND = if_else(BEFORE > AFTER, 'REDUCED', 'INCREASED'))
-table(demand_by_machine_best_products$DIF_DEMAND)
+kable(table(demand_by_machine_best_products$DIF_DEMAND))
 ```
-
+<br />
 **In general, the most cases show that the demand has decreased.**<br />
 
 But to assume it's true, it's important to measure the difference of length mean.
@@ -332,7 +332,7 @@ But to assume it's true, it's important to measure the difference of length mean
 demand_by_machine_best_products <- dcast(distinct(production_failures %>%
                                                     filter(PRODUCT %in% best_products) %>%
                                                     group_by(PRODUCT, MACHINE, ID, VERSION) %>%
-                                                    mutate(PRODUCTION = mean(LENGHT)) %>%
+                                                    mutate(PRODUCTION = mean(LENGTH)) %>%
                                                     select(PRODUCT, MACHINE, ID, VERSION, PRODUCTION),
                                                   MACHINE, VERSION, .keep_all = T),
                                          MACHINE + ID + PRODUCT ~ VERSION)
@@ -346,11 +346,25 @@ kable(demand_by_machine_best_products) %>%
 mean(demand_by_machine_best_products$AFTER, na.rm = T)-mean(demand_by_machine_best_products$BEFORE, na.rm = T)
 ```
 
-**Even it's shown that the products have incresead the lenght by unit, 62 meters aren't enough to affirm that the lenght has impact to the number of failures.**<br />
+**Even it's shown that the products have incresead the length by unit, 62 meters aren't enough to affirm that the length has impact to the number of failures.**<br />
+To finally check if there are a correlation between the length of products and number of failures, it will be calculated the correlation coefficient.
+```{r}
+ggplot(production_failures) +
+  geom_point(aes(x = LENGTH, y = TOTAL), fill = 'lightblue', color = 'darkblue', alpha = 0.7) +
+  ggtitle('CORRELATION BETWEEN LENGTH OF PRODUCT AND FAILURES OCCURRENCES') +
+  labs(subtitle = paste('Correlation coefficient',
+                        round(cor(production_failures$LENGTH,
+                            production_failures$TOTAL,
+                            method = c('pearson', 'kendall', 'spearman')),2))) +
+  theme(plot.title = element_text(vjust = 0.5, hjust = 0.5, face='bold'),
+        plot.subtitle = element_text(vjust = 0.5, hjust = 0.5))
+```
+<br />
+**With a correlation coefficient close to 0, it's proved that there aren't a a strong correlation between the length of the product with the number of failures.**<br />
 So, at this point, the first suggestion that the machines have not to do with the performance decreasement of the product TYPE A is being considered true, and the second one isn't comproved.
 
 ## ANALYSIS OF FREQUENCE OF FAILURES BY SECTIONS OF THE PRODUCT.
-Since the product can be measured by lenght, by analysing the number of failures per secction can bring up some insights that could help to understand if the failures occur more at the begin of the proccess, at the middle of the proccess or at the end of the proccess.
+Since the product can be measured by length, by analysing the number of failures per secction can bring up some insights that could help to understand if the failures occur more at the begin of the proccess, at the middle of the proccess or at the end of the proccess.
 
 <h3>Calculating the occurrences by secction of the product</h3>
 Considering that the failures ID has a letter at the end, and this letters represent the secction of the product in a sequential order (A = begin, B = 2nd part, C = 3rd part, ...) it may be used to calculate if the products have a tendence of more failures in a specific secction.
@@ -371,7 +385,7 @@ failures_by_section <- failures_by_section %>% filter(ID != '0' & ID != '1')
 
 ## Checking the frequency by secction
 ```{r, results='asis'}
-table(failures_by_section$ID)
+kable(table(failures_by_section$ID))
 ```
 
 **The secctions between A and D has the most number of occurrences. It regards to the most products are splitted into only four secctions.**<br />
